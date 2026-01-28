@@ -23,6 +23,9 @@ yarn-error.log*
 # ========================
 __pycache__/
 *.py[codz]
+*.pyc
+*.pyo
+*.pyd
 *.so
 
 instance/
@@ -52,12 +55,15 @@ dist/
 # ========================
 .ipynb_checkpoints
 data/
+temp/
 logs/
 outputs/
 *.h5
 *.pt
-*.onnx
 *.ckpt
+*.weights
+*.model
+*.onnx
 
 # ========================
 # IDE / Tools
@@ -66,3 +72,6 @@ outputs/
 .idea/
 .mypy_cache/
 .pytest_cache/
+
+# Environment / API keys
+api_keys/
