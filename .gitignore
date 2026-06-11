@@ -1,48 +1,52 @@
 # ========================
-# React / Node
+# Node / React
 # ========================
-/node_modules
-/.pnp
-.pnp.js
-/build
-/coverage
+node_modules/
+**/node_modules/
+
+build/
+dist/
+coverage/
 
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
 .DS_Store
 
+# Env files (all environments)
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
+
+# React build (CRA / Vite safe)
+react/build/
 
 # ========================
 # Python / Flask
 # ========================
 __pycache__/
-*.py[codz]
+**/__pycache__/
+
+*.py[cod]
 *.pyc
 *.pyo
-*.pyd
-*.so
+
+venv/
+.venv/
+env/
+ENV/
+backend/venv/
 
 instance/
 .webassets-cache
-
-.envrc
-.venv
-env/
-venv/
-ENV/
 
 *.sqlite3
 *.db
 *.log
 
 # ========================
-# Packaging / Build
+# Packaging / Python build
 # ========================
 build/
 dist/
@@ -53,11 +57,12 @@ dist/
 # ========================
 # Jupyter / AI / ML
 # ========================
-.ipynb_checkpoints
+.ipynb_checkpoints/
 data/
 temp/
 logs/
 outputs/
+
 *.h5
 *.pt
 *.ckpt
@@ -66,12 +71,21 @@ outputs/
 *.onnx
 
 # ========================
-# IDE / Tools
+# IDE / Editors
 # ========================
 .vscode/
 .idea/
 .mypy_cache/
 .pytest_cache/
 
-# Environment / API keys
+# ========================
+# Security / Secrets
+# ========================
 api_keys/
+*.key
+
+# ========================
+# OS junk
+# ========================
+.DS_Store
+Thumbs.db

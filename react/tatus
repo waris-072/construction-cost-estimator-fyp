@@ -1,0 +1,55 @@
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'LICENSE', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/app/__init__.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/app/admin.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/app/auth.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/app/database.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/app/estimate.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/config.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/requirements.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/run.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/setup.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/test_db.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'package-lock.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'public/index.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'public/manifest.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'public/robots.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/App.css', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/App.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/App.test.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/Layouts/Footer.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/Layouts/Header.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/Pages/AdminPanel.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/Pages/Estimation.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/Pages/Help.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/Pages/Home.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/Pages/Login.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/Pages/Profile.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/Pages/Results.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/Pages/Signup.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/UI/Button.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/UI/Card.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/UI/Input.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/index.css', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/index.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/reportWebVitals.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/services/api.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/setupTests.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/styles/globals.css', LF will be replaced by CRLF the next time Git touches it
+ backend/app/__init__.py            |   16 [32m+[m[31m-[m
+ backend/app/estimate.py            |  289 [32m++++[m[31m-[m
+ backend/requirements.txt           |    5 [32m+[m[31m-[m
+ backend/run.py                     |   12 [32m+[m[31m-[m
+ package-lock.json                  | 2068 [32m+++++++++++++++++[m[31m-------------------[m
+ package.json                       |    3 [32m+[m
+ src/components/Layouts/Footer.js   |   20 [32m+[m[31m-[m
+ src/components/Layouts/Header.js   |    2 [32m+[m[31m-[m
+ src/components/Pages/AdminPanel.js |  451 [32m+++++++[m[31m-[m
+ src/components/Pages/Estimation.js |  486 [32m++++++++[m[31m-[m
+ src/components/Pages/Profile.js    |   39 [32m+[m[31m-[m
+ src/components/Pages/Results.js    |  325 [32m++++[m[31m--[m
+ src/services/api.js                |   15 [32m+[m
+ src/styles/globals.css             |    9 [32m+[m
+ 14 files changed, 2378 insertions(+), 1362 deletions(-)
