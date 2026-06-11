@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { estimateAPI } from '../../services/api';
+import VoiceInput from '../UI/VoiceInput';
 
 const Estimation = () => {
   const navigate = useNavigate();
@@ -9,6 +10,28 @@ const Estimation = () => {
   const [materials, setMaterials] = useState([]);
   const [activeTab, setActiveTab] = useState('form');
   const [areaWarning, setAreaWarning] = useState('');
+  const [voiceSuccess, setVoiceSuccess] = useState('');
+  const [aiLocationInput, setAiLocationInput] = useState('');
+  const [aiSuggestions, setAiSuggestions] = useState(null);
+  const [loadingAi, setLoadingAi] = useState(false);
+  // AI Form state
+  const [aiFormData, setAiFormData] = useState({
+    projectName: '',
+    projectSize: '',
+    location: '',
+    rooms: '',
+    roomLength: '',
+    roomWidth: '',
+    materialQuality: 'Standard',
+    finishes: 'No',
+    finishesQuality: 'Standard',
+    floors: '1',
+    ceilingHeight: '10'
+  });
+  // Note: aiAreaWarning is displayed but not dynamically updated
+  // Keeping it here for future use
+  const aiAreaWarning = '';
+  const [aiVoiceSuccess, setAiVoiceSuccess] = useState('');
   
   // Form state
   const [formData, setFormData] = useState({
@@ -43,6 +66,7 @@ const Estimation = () => {
   // Update area warning when relevant fields change
   useEffect(() => {
     calculateAreaWarning();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.projectSize, formData.rooms, formData.roomLength, formData.roomWidth]);
 
   const loadCities = async () => {
@@ -107,33 +131,33 @@ const Estimation = () => {
 
   // Validation function
   const validateForm = () => {
-    // Basic required field validation
-    if (!formData.projectName || !formData.projectSize || !formData.location || 
-        !formData.rooms || !formData.materialQuality || !formData.roomLength || !formData.roomWidth) {
-      alert('Please fill in all required fields including room dimensions');
+    // Convert to numbers early for conditional checks
+    const projectSize = parseFloat(formData.projectSize);
+    const rooms = parseInt(formData.rooms) || 0;
+    const roomLength = parseFloat(formData.roomLength) || 0;
+    const roomWidth = parseFloat(formData.roomWidth) || 0;
+    const floors = parseInt(formData.floors) || 1;
+
+    // Basic required fields
+    if (!formData.projectName || !formData.projectSize || !formData.location || !formData.materialQuality) {
+      alert('Please fill in required fields: project name, project area, location, and material quality.');
       return false;
     }
 
-    // Convert to numbers
-    const projectSize = parseFloat(formData.projectSize);
-    const rooms = parseInt(formData.rooms);
-    const roomLength = parseFloat(formData.roomLength);
-    const roomWidth = parseFloat(formData.roomWidth);
-    const floors = parseInt(formData.floors) || 1;
+    // If user specifies a number of rooms (>0), require room dimensions
+    if (rooms > 0 && (roomLength <= 0 || roomWidth <= 0)) {
+      alert('Please provide valid room dimensions (length and width) for the specified number of rooms.');
+      return false;
+    }
 
-    // Validate positive numbers
+    // Validate positive numbers for main numeric fields
     if (projectSize <= 0) {
       alert('Project area must be greater than 0');
       return false;
     }
 
-    if (rooms <= 0) {
-      alert('Number of rooms must be greater than 0');
-      return false;
-    }
-
-    if (roomLength <= 0 || roomWidth <= 0) {
-      alert('Room dimensions must be greater than 0');
+    if (rooms < 0) {
+      alert('Number of rooms must be 0 or greater');
       return false;
     }
 
@@ -142,12 +166,20 @@ const Estimation = () => {
       return false;
     }
 
-    // Validate room dimensions
-    const totalRoomsArea = roomLength * roomWidth * rooms;
-    
-    // Block submission if room area exceeds project area
-    if (totalRoomsArea > projectSize) {
-      return false; // Submission blocked - warning shown in UI
+    // If room dimensions provided, ensure they are positive
+    if ((formData.roomLength || formData.roomWidth) && (roomLength <= 0 || roomWidth <= 0)) {
+      alert('Room dimensions must be greater than 0');
+      return false;
+    }
+
+    // Validate room area vs project area (if dimensions available)
+    if (rooms > 0 && roomLength > 0 && roomWidth > 0) {
+      const totalRoomsArea = roomLength * roomWidth * rooms;
+
+      if (totalRoomsArea > projectSize) {
+        // Block submission if room area exceeds project area
+        return false; // Submission blocked - warning shown in UI
+      }
     }
 
     // Validate finishes quality if finishes is Yes
@@ -235,37 +267,392 @@ const Estimation = () => {
                 AI-Powered Estimation
               </h4>
               <p className="tab-description text-muted mb-3 mb-md-4">
-                Get intelligent estimates for any city in Pakistan using our AI model.
+                Fill out the form below or use voice input. The AI will generate an estimate based on your details.
               </p>
               <div className="alert alert-info">
                 <i className="fas fa-robot me-2"></i>
                 AI estimates consider regional factors, market trends, and historical data.
               </div>
-              <div className="mt-4">
-                <button className="btn btn-outline-primary" disabled>
-                  <i className="fas fa-bolt me-2"></i>
-                  Coming Soon
-                </button>
+            </div>
+            <div className="row g-4">
+              <div className="col-md-7">
+                <form onSubmit={async (e) => {
+                  e.preventDefault();
+                  // Validate AI form
+                  const projectSize = parseFloat(aiFormData.projectSize);
+                  const rooms = parseInt(aiFormData.rooms) || 0;
+                  const roomLength = parseFloat(aiFormData.roomLength) || 0;
+                  const roomWidth = parseFloat(aiFormData.roomWidth) || 0;
+                  const totalRoomsArea = roomLength * roomWidth * rooms;
+                  if (totalRoomsArea > projectSize) {
+                    alert(`Cannot proceed: Room area (${totalRoomsArea.toLocaleString()} sq.ft) exceeds project area (${projectSize.toLocaleString()} sq.ft).\nPlease adjust your inputs.`);
+                    return;
+                  }
+                  if (!aiFormData.projectName || !aiFormData.projectSize || !aiFormData.location || !aiFormData.materialQuality) {
+                    alert('Please fill in required fields: project name, project area, location, and material quality.');
+                    return;
+                  }
+                  setLoadingAi(true);
+                  setAiSuggestions(null);
+                  try {
+                    const payload = {
+                      ...aiFormData,
+                      projectSize: parseFloat(aiFormData.projectSize) || 0,
+                      rooms: parseInt(aiFormData.rooms) || 0,
+                      floors: parseInt(aiFormData.floors) || 1,
+                    };
+                    const resp = await estimateAPI.calculate(payload);
+                    if (!resp.data.success) {
+                      alert(resp.data.error || 'AI estimation failed');
+                      return;
+                    }
+                    const est = resp.data.estimate;
+                    if (aiLocationInput && aiLocationInput.trim()) {
+                      const target = aiLocationInput.trim();
+                      const known = cities.find(c => c.name.toLowerCase() === target.toLowerCase());
+                      if (known) {
+                        const updatedForm = { ...aiFormData, location: target };
+                        navigate('/results', { state: { estimate: est, formData: updatedForm, materials } });
+                        return;
+                      }
+                      try {
+                        const cityResp = await estimateAPI.aiCityEstimate({ projectData: payload, targetCity: target, currentCost: est.total_cost });
+                        if (cityResp.data.success) {
+                          const cityEst = cityResp.data.cityEstimate || {};
+                          const estimatedCost = cityEst.estimatedCost || cityEst.estimated_cost;
+                          if (window.confirm(`AI estimated cost for ${target}: PKR ${estimatedCost?.toLocaleString() || 'N/A'}\nReason: ${cityEst.reason || ''}\n\nDo you want to use this estimate?`)) {
+                            const minimalEstimate = { total_cost: estimatedCost || est.total_cost };
+                            const updatedForm = { ...aiFormData, location: target };
+                            navigate('/results', { state: { estimate: minimalEstimate, formData: updatedForm, materials } });
+                          }
+                          return;
+                        } else {
+                          alert(cityResp.data.error || 'AI city estimate failed');
+                          return;
+                        }
+                      } catch (e) {
+                        console.error('AI city error', e);
+                        const serverMsg = e?.response?.data?.error || e?.message || String(e);
+                        alert('AI city estimate failed: ' + serverMsg);
+                        return;
+                      }
+                    }
+                    // Always show AI result directly
+                    navigate('/results', { state: { estimate: est, formData: aiFormData, materials } });
+                  } catch (err) {
+                    console.error('AI estimate error', err);
+                    const serverMsg = err?.response?.data?.error || err?.message || String(err);
+                    alert('AI estimation failed: ' + serverMsg);
+                  } finally {
+                    setLoadingAi(false);
+                  }
+                }} className="row g-3">
+                  {/* Project Name */}
+                  <div className="col-6">
+                    <label className="form-label fw-semibold text-dark">
+                      <i className="fas fa-project-diagram me-2 text-primary"></i>
+                      Project Name *
+                    </label>
+                    <input
+                      type="text"
+                      name="projectName"
+                      value={aiFormData.projectName}
+                      onChange={e => setAiFormData({ ...aiFormData, projectName: e.target.value })}
+                      className="form-control form-control-custom"
+                      placeholder="Enter your project name"
+                      required
+                    />
+                  </div>
+                  {/* Project Size */}
+                  <div className="col-md-6">
+                    <label className="form-label fw-semibold text-dark">
+                      <i className="fas fa-ruler-combined me-2 text-primary"></i>
+                      Total Project Area (sq. ft.) *
+                    </label>
+                    <input
+                      type="number"
+                      name="projectSize"
+                      value={aiFormData.projectSize}
+                      onChange={e => setAiFormData({ ...aiFormData, projectSize: e.target.value })}
+                      className="form-control form-control-custom"
+                      placeholder="Total construction area"
+                      min="1"
+                      required
+                    />
+                  </div>
+                  {/* Location Dropdown */}
+                  <div className="col-md-6">
+                    <label className="form-label fw-semibold text-dark">
+                      <i className="fas fa-map-marker-alt me-2 text-primary"></i>
+                      Project Location *
+                    </label>
+                    <select
+                      name="location"
+                      value={aiFormData.location}
+                      onChange={e => setAiFormData({ ...aiFormData, location: e.target.value })}
+                      className="form-select form-control-custom"
+                      required
+                      disabled={cities.length === 0}
+                    >
+                      <option value="">Select Location</option>
+                      {cities.map(city => (
+                        <option key={city.id} value={city.name}>
+                          {city.name}
+                        </option>
+                      ))}
+                      <option value="Other">Other (Enter City)</option>
+                    </select>
+                    {aiFormData.location === 'Other' && (
+                      <input
+                        type="text"
+                        name="customCity"
+                        value={aiFormData.customCity || ''}
+                        onChange={e => setAiFormData({ ...aiFormData, customCity: e.target.value })}
+                        className="form-control mt-2"
+                        placeholder="Enter your city name"
+                        required
+                      />
+                    )}
+                    {cities.length === 0 && (
+                      <small className="text-danger">
+                        <i className="fas fa-exclamation-circle me-1"></i>
+                        Loading cities...
+                      </small>
+                    )}
+                  </div>
+                  {/* Number of Rooms */}
+                  <div className="col-md-6">
+                    <label className="form-label fw-semibold text-dark">
+                      <i className="fas fa-door-open me-2 text-primary"></i>
+                      Total Rooms *
+                    </label>
+                    <input
+                      type="number"
+                      name="rooms"
+                      value={aiFormData.rooms}
+                      onChange={e => setAiFormData({ ...aiFormData, rooms: e.target.value })}
+                      className="form-control form-control-custom"
+                      placeholder="Number of rooms"
+                      min="1"
+                      required
+                    />
+                  </div>
+                  {/* Room Dimensions */}
+                  <div className="col-md-6">
+                    <label className="form-label fw-semibold text-dark">
+                      <i className="fas fa-ruler me-2 text-primary"></i>
+                      Room Length (ft) *
+                    </label>
+                    <input
+                      type="number"
+                      name="roomLength"
+                      value={aiFormData.roomLength}
+                      onChange={e => setAiFormData({ ...aiFormData, roomLength: e.target.value })}
+                      className="form-control form-control-custom"
+                      placeholder="Length in feet"
+                      min="1"
+                      required
+                    />
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label fw-semibold text-dark">
+                      <i className="fas fa-ruler me-2 text-primary"></i>
+                      Room Width (ft) *
+                    </label>
+                    <input
+                      type="number"
+                      name="roomWidth"
+                      value={aiFormData.roomWidth}
+                      onChange={e => setAiFormData({ ...aiFormData, roomWidth: e.target.value })}
+                      className="form-control form-control-custom"
+                      placeholder="Width in feet"
+                      min="1"
+                      required
+                    />
+                  </div>
+                  {/* Area Warning */}
+                  {aiAreaWarning && (
+                    <div className="col-12">
+                      <div className={`alert ${aiAreaWarning.includes('⚠️') ? 'alert-warning' : 'alert-info'} py-2 mb-0`}>
+                        <i className="fas fa-info-circle me-2"></i>
+                        {aiAreaWarning}
+                      </div>
+                    </div>
+                  )}
+                  {/* Ceiling Height Dropdown */}
+                  <div className="col-md-6">
+                    <label className="form-label fw-semibold text-dark">
+                      <i className="fas fa-arrow-up me-2 text-primary"></i>
+                      Ceiling Height *
+                    </label>
+                    <select
+                      name="ceilingHeight"
+                      value={aiFormData.ceilingHeight}
+                      onChange={e => setAiFormData({ ...aiFormData, ceilingHeight: e.target.value })}
+                      className="form-select form-control-custom"
+                      required
+                    >
+                      <option value="">Select Height</option>
+                      {ceilingHeights.map(height => (
+                        <option key={height.value} value={height.value}>
+                          {height.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* Number of Floors */}
+                  <div className="col-md-6">
+                    <label className="form-label fw-semibold text-dark">
+                      <i className="fas fa-building me-2 text-primary"></i>
+                      Number of Floors *
+                    </label>
+                    <input
+                      type="number"
+                      name="floors"
+                      value={aiFormData.floors}
+                      onChange={e => setAiFormData({ ...aiFormData, floors: e.target.value })}
+                      className="form-control form-control-custom"
+                      placeholder="Total floors"
+                      min="1"
+                      required
+                    />
+                  </div>
+                  {/* Material Quality Dropdown */}
+                  <div className="col-md-6">
+                    <label className="form-label fw-semibold text-dark">
+                      <i className="fas fa-gem me-2 text-primary"></i>
+                      Material Quality *
+                    </label>
+                    <select
+                      name="materialQuality"
+                      value={aiFormData.materialQuality}
+                      onChange={e => setAiFormData({ ...aiFormData, materialQuality: e.target.value })}
+                      className="form-select form-control-custom"
+                      required
+                    >
+                      <option value="">Select Quality</option>
+                      {materialQualities.map(quality => (
+                        <option key={quality} value={quality}>
+                          {quality}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* Finishes Selection */}
+                  <div className="col-md-6">
+                    <label className="form-label fw-semibold text-dark">
+                      <i className="fas fa-paint-roller me-2 text-primary"></i>
+                      Include Finishes?
+                    </label>
+                    <select
+                      name="finishes"
+                      value={aiFormData.finishes}
+                      onChange={e => setAiFormData({ ...aiFormData, finishes: e.target.value })}
+                      className="form-select form-control-custom"
+                    >
+                      {finishesOptions.map(option => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* Finishes Quality (only if finishes is Yes) */}
+                  {aiFormData.finishes === 'Yes' && (
+                    <div className="col-12">
+                      <label className="form-label fw-semibold text-dark">
+                        <i className="fas fa-star me-2 text-primary"></i>
+                        Finishes Quality *
+                      </label>
+                      <select
+                        name="finishesQuality"
+                        value={aiFormData.finishesQuality}
+                        onChange={e => setAiFormData({ ...aiFormData, finishesQuality: e.target.value })}
+                        className="form-select form-control-custom"
+                        required={aiFormData.finishes === 'Yes'}
+                      >
+                        <option value="">Select Finishes Quality</option>
+                        {finishesQualities.map(quality => (
+                          <option key={quality} value={quality}>
+                            {quality}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {/* Submit Button */}
+                  <div className="col-12 mt-4">
+                    <button
+                      type="submit"
+                      className="btn btn-primary-custom btn-lg w-100 submit-btn py-3"
+                      disabled={loadingAi || aiAreaWarning.includes('⚠️')}
+                    >
+                      {loadingAi ? (
+                        <>
+                          <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                          Calculating...
+                        </>
+                      ) : (
+                        <>
+                          <i className="fas fa-calculator me-2"></i>
+                          Generate AI Cost Estimation
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+              <div className="col-md-5">
+                <VoiceInput
+                  onVoiceText={() => {}}
+                  onParsedData={params => {
+                    setAiFormData(prev => ({
+                      ...prev,
+                      ...params,
+                      materialQuality: params.materialQuality ? params.materialQuality.charAt(0).toUpperCase() + params.materialQuality.slice(1) : 'Standard',
+                      finishesQuality: params.finishesQuality ? params.finishesQuality.charAt(0).toUpperCase() + params.finishesQuality.slice(1) : 'Standard',
+                      finishes: params.finishes === 'Yes' ? 'Yes' : 'No'
+                    }));
+                    setAiVoiceSuccess('✨ AI Project details auto-filled! Review and adjust as needed, then submit.');
+                  }}
+                />
+                {aiVoiceSuccess && (
+                  <div className="alert alert-success alert-dismissible fade show mt-3">
+                    <i className="fas fa-check-circle me-2"></i>
+                    {aiVoiceSuccess}
+                  </div>
+                )}
               </div>
             </div>
+            {/* AI suggestions removed: AI now always gives direct results */}
           </div>
         );
 
       case 'voice':
         return (
           <div className="tab-content p-3 p-md-4 bg-light rounded">
-            <div className="text-center mb-3 mb-md-4">
-              <h4 className="tab-title fw-semibold mb-2 text-primary">
-                Voice Command Input
-              </h4>
-              <p className="tab-description text-muted mb-3 mb-md-4">
-                Use voice commands to quickly input your project details. Ensure clear audio for best results.
-              </p>
-              <div className="alert alert-info">
-                <i className="fas fa-microphone me-2"></i>
-                Voice input feature is currently under development.
+            {voiceSuccess && (
+              <div className="alert alert-success alert-dismissible fade show">
+                <i className="fas fa-check-circle me-2"></i>
+                {voiceSuccess}
               </div>
-            </div>
+            )}
+            <VoiceInput 
+              onVoiceText={(text) => console.log('Voice:', text)}
+              onParsedData={(params) => {
+                // Auto-fill form with parsed voice data
+                setFormData(prev => ({
+                  ...prev,
+                  ...params,
+                  materialQuality: params.materialQuality ? params.materialQuality.charAt(0).toUpperCase() + params.materialQuality.slice(1) : 'Standard',
+                  finishesQuality: params.finishesQuality ? params.finishesQuality.charAt(0).toUpperCase() + params.finishesQuality.slice(1) : 'Standard',
+                  finishes: params.finishes === 'Yes' ? 'Yes' : 'No'
+                }));
+                setVoiceSuccess('✨ Project details auto-filled! Review and adjust as needed, then submit.');
+                // Switch to form tab
+                setTimeout(() => setActiveTab('form'), 500);
+              }}
+            />
           </div>
         );
 
@@ -397,7 +784,12 @@ const Estimation = () => {
                   <select
                     name="location"
                     value={formData.location}
-                    onChange={handleInputChange}
+                    onChange={e => {
+                      handleInputChange(e);
+                      if (e.target.value !== 'Other') {
+                        setFormData(prev => ({ ...prev, customCity: '' }));
+                      }
+                    }}
                     className="form-select form-control-custom"
                     required
                     disabled={cities.length === 0}
@@ -408,7 +800,19 @@ const Estimation = () => {
                         {city.name}
                       </option>
                     ))}
+                    <option value="Other">Other (Enter City)</option>
                   </select>
+                  {formData.location === 'Other' && (
+                    <input
+                      type="text"
+                      name="customCity"
+                      value={formData.customCity || ''}
+                      onChange={e => setFormData(prev => ({ ...prev, customCity: e.target.value }))}
+                      className="form-control mt-2"
+                      placeholder="Enter your city name"
+                      required
+                    />
+                  )}
                   {cities.length === 0 && (
                     <small className="text-danger">
                       <i className="fas fa-exclamation-circle me-1"></i>

@@ -1,18 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { adminAPI } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
 
 // Helper functions
 const formatDate = (dateString) => {
-  if (!dateString) return 'N/A';
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
-};
-
-const formatDateTime = (dateString) => {
   if (!dateString) return 'N/A';
   return new Date(dateString).toLocaleDateString('en-US', {
     year: 'numeric',
@@ -55,6 +46,23 @@ const AdminPanel = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showCreateMaterialModal, setShowCreateMaterialModal] = useState(false);
+  const [showCreateCityModal, setShowCreateCityModal] = useState(false);
+  const [newMaterial, setNewMaterial] = useState({
+    name: '',
+    category: '',
+    unit: '',
+    standard_rate: 0,
+    premium_rate: 0,
+    luxury_rate: 0
+  });
+  const [newCity, setNewCity] = useState({
+    name: '',
+    code: '',
+    labor_rate_per_sqft: 0,
+    material_base_rate: 0,
+    equipment_rate: 0
+  });
 
   // Check if user is admin on mount
   useEffect(() => {
@@ -77,6 +85,7 @@ const AdminPanel = () => {
     if (activeTab === 'cities') loadCities();
     if (activeTab === 'estimates') loadEstimates();
     if (activeTab === 'users') loadUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   const loadDashboard = async () => {
@@ -175,6 +184,51 @@ const AdminPanel = () => {
     }
   };
 
+  const createMaterial = async () => {
+    try {
+      // Validate inputs
+      if (!newMaterial.name || !newMaterial.category || !newMaterial.unit) {
+        alert('Please fill in all required fields');
+        return;
+      }
+
+      const response = await adminAPI.createMaterial(newMaterial);
+      if (response.data.success) {
+        alert('Material created successfully!');
+        setShowCreateMaterialModal(false);
+        setNewMaterial({
+          name: '',
+          category: '',
+          unit: '',
+          standard_rate: 0,
+          premium_rate: 0,
+          luxury_rate: 0
+        });
+        loadMaterials();
+      }
+    } catch (error) {
+      console.error('Failed to create material:', error);
+      alert('Failed to create material: ' + (error.response?.data?.error || error.message));
+    }
+  };
+
+  const deleteMaterial = async (materialId) => {
+    if (!window.confirm('Are you sure you want to delete this material?')) {
+      return;
+    }
+
+    try {
+      const response = await adminAPI.deleteMaterial(materialId);
+      if (response.data.success) {
+        alert('Material deleted successfully!');
+        loadMaterials();
+      }
+    } catch (error) {
+      console.error('Failed to delete material:', error);
+      alert('Failed to delete material');
+    }
+  };
+
   const updateCity = async (id, updatedData) => {
     try {
       const response = await adminAPI.updateCity(id, updatedData);
@@ -185,6 +239,50 @@ const AdminPanel = () => {
     } catch (error) {
       console.error('Failed to update city:', error);
       alert('Failed to update city rates');
+    }
+  };
+
+  const createCity = async () => {
+    try {
+      // Validate inputs
+      if (!newCity.name || !newCity.code) {
+        alert('Please fill in all required fields');
+        return;
+      }
+
+      const response = await adminAPI.createCity(newCity);
+      if (response.data.success) {
+        alert('City created successfully!');
+        setShowCreateCityModal(false);
+        setNewCity({
+          name: '',
+          code: '',
+          labor_rate_per_sqft: 0,
+          material_base_rate: 0,
+          equipment_rate: 0
+        });
+        loadCities();
+      }
+    } catch (error) {
+      console.error('Failed to create city:', error);
+      alert('Failed to create city: ' + (error.response?.data?.error || error.message));
+    }
+  };
+
+  const deleteCity = async (cityId) => {
+    if (!window.confirm('Are you sure you want to delete this city?')) {
+      return;
+    }
+
+    try {
+      const response = await adminAPI.deleteCity(cityId);
+      if (response.data.success) {
+        alert('City deleted successfully!');
+        loadCities();
+      }
+    } catch (error) {
+      console.error('Failed to delete city:', error);
+      alert('Failed to delete city');
     }
   };
 
@@ -224,6 +322,22 @@ const AdminPanel = () => {
 
   const viewEstimate = (estimateId) => {
     navigate('/results', { state: { estimateId: estimateId, fromAdmin: true } });
+  };
+
+  const deleteEstimate = async (estimateId) => {
+    if (!window.confirm('Are you sure you want to delete this estimate?')) return;
+    try {
+      const response = await adminAPI.deleteEstimateAdmin(estimateId);
+      if (response.data.success) {
+        alert('Estimate deleted successfully!');
+        loadEstimates();
+      } else {
+        alert(response.data.error || 'Failed to delete estimate');
+      }
+    } catch (error) {
+      console.error('Failed to delete estimate:', error);
+      alert('Failed to delete estimate');
+    }
   };
 
   // Render loading spinner
@@ -433,14 +547,24 @@ const AdminPanel = () => {
           <i className="fas fa-cube me-2"></i>
           Material Prices
         </h4>
-        <button 
-          className="btn btn-sm"
-          onClick={loadMaterials}
-          style={{ backgroundColor: COLORS.primary, color: 'white' }}
-        >
-          <i className="fas fa-redo me-1"></i>
-          Refresh
-        </button>
+        <div className="d-flex gap-2">
+          <button 
+            className="btn btn-sm"
+            onClick={loadMaterials}
+            style={{ backgroundColor: COLORS.primary, color: 'white' }}
+          >
+            <i className="fas fa-redo me-1"></i>
+            Refresh
+          </button>
+          <button 
+            className="btn btn-sm"
+            onClick={() => setShowCreateMaterialModal(true)}
+            style={{ backgroundColor: COLORS.success, color: 'white' }}
+          >
+            <i className="fas fa-plus me-1"></i>
+            Add Material
+          </button>
+        </div>
       </div>
       
       {error && (
@@ -475,7 +599,8 @@ const AdminPanel = () => {
                     <MaterialRow 
                       key={material.id} 
                       material={material} 
-                      onUpdate={updateMaterial} 
+                      onUpdate={updateMaterial}
+                      onDelete={deleteMaterial}
                     />
                   ))}
                 </tbody>
@@ -495,14 +620,24 @@ const AdminPanel = () => {
           <i className="fas fa-city me-2"></i>
           City Rates
         </h4>
-        <button 
-          className="btn btn-sm"
-          onClick={loadCities}
-          style={{ backgroundColor: COLORS.primary, color: 'white' }}
-        >
-          <i className="fas fa-redo me-1"></i>
-          Refresh
-        </button>
+        <div className="d-flex gap-2">
+          <button 
+            className="btn btn-sm"
+            onClick={loadCities}
+            style={{ backgroundColor: COLORS.primary, color: 'white' }}
+          >
+            <i className="fas fa-redo me-1"></i>
+            Refresh
+          </button>
+          <button 
+            className="btn btn-sm"
+            onClick={() => setShowCreateCityModal(true)}
+            style={{ backgroundColor: COLORS.success, color: 'white' }}
+          >
+            <i className="fas fa-plus me-1"></i>
+            Add City
+          </button>
+        </div>
       </div>
       
       {error && (
@@ -536,7 +671,8 @@ const AdminPanel = () => {
                     <CityRow 
                       key={city.id} 
                       city={city} 
-                      onUpdate={updateCity} 
+                      onUpdate={updateCity}
+                      onDelete={deleteCity}
                     />
                   ))}
                 </tbody>
@@ -623,6 +759,14 @@ const AdminPanel = () => {
                           title="View Estimate"
                         >
                           <i className="fas fa-eye"></i>
+                        </button>
+                        <button
+                          className="btn btn-sm p-0"
+                          onClick={() => deleteEstimate(estimate.id)}
+                          style={{ color: COLORS.danger }}
+                          title="Delete Estimate"
+                        >
+                          <i className="fas fa-trash"></i>
                         </button>
                       </td>
                     </tr>
@@ -921,13 +1065,208 @@ const AdminPanel = () => {
             {activeTab === 'users' && renderUsers()}
           </div>
         </div>
+
+        {/* Create Material Modal */}
+        {showCreateMaterialModal && (
+          <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+            <div className="modal-dialog modal-dialog-centered">
+              <div className="modal-content">
+                <div className="modal-header border-0" style={{ backgroundColor: `${COLORS.primary}10` }}>
+                  <h5 className="modal-title fw-bold" style={{ color: COLORS.primary }}>
+                    <i className="fas fa-plus me-2"></i>
+                    Add New Material
+                  </h5>
+                  <button 
+                    type="button" 
+                    className="btn-close"
+                    onClick={() => setShowCreateMaterialModal(false)}
+                  ></button>
+                </div>
+                <div className="modal-body">
+                  <div className="mb-3">
+                    <label className="form-label fw-semibold">Material Name *</label>
+                    <input 
+                      type="text"
+                      className="form-control"
+                      value={newMaterial.name}
+                      onChange={(e) => setNewMaterial({...newMaterial, name: e.target.value})}
+                      placeholder="e.g., Marble, Granite"
+                    />
+                  </div>
+                  <div className="row">
+                    <div className="col-md-6 mb-3">
+                      <label className="form-label fw-semibold">Category *</label>
+                      <input 
+                        type="text"
+                        className="form-control"
+                        value={newMaterial.category}
+                        onChange={(e) => setNewMaterial({...newMaterial, category: e.target.value})}
+                        placeholder="e.g., tiles, stone"
+                      />
+                    </div>
+                    <div className="col-md-6 mb-3">
+                      <label className="form-label fw-semibold">Unit *</label>
+                      <input 
+                        type="text"
+                        className="form-control"
+                        value={newMaterial.unit}
+                        onChange={(e) => setNewMaterial({...newMaterial, unit: e.target.value})}
+                        placeholder="e.g., sq. ft., kg"
+                      />
+                    </div>
+                  </div>
+                  <div className="row">
+                    <div className="col-md-4 mb-3">
+                      <label className="form-label fw-semibold">Standard Rate (PKR)</label>
+                      <input 
+                        type="number"
+                        className="form-control"
+                        value={newMaterial.standard_rate}
+                        onChange={(e) => setNewMaterial({...newMaterial, standard_rate: parseFloat(e.target.value) || 0})}
+                      />
+                    </div>
+                    <div className="col-md-4 mb-3">
+                      <label className="form-label fw-semibold">Premium Rate (PKR)</label>
+                      <input 
+                        type="number"
+                        className="form-control"
+                        value={newMaterial.premium_rate}
+                        onChange={(e) => setNewMaterial({...newMaterial, premium_rate: parseFloat(e.target.value) || 0})}
+                      />
+                    </div>
+                    <div className="col-md-4 mb-3">
+                      <label className="form-label fw-semibold">Luxury Rate (PKR)</label>
+                      <input 
+                        type="number"
+                        className="form-control"
+                        value={newMaterial.luxury_rate}
+                        onChange={(e) => setNewMaterial({...newMaterial, luxury_rate: parseFloat(e.target.value) || 0})}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="modal-footer border-0">
+                  <button 
+                    type="button" 
+                    className="btn btn-outline-secondary"
+                    onClick={() => setShowCreateMaterialModal(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn"
+                    onClick={createMaterial}
+                    style={{ backgroundColor: COLORS.success, color: 'white' }}
+                  >
+                    <i className="fas fa-plus me-1"></i>
+                    Create Material
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Create City Modal */}
+        {showCreateCityModal && (
+          <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+            <div className="modal-dialog modal-dialog-centered">
+              <div className="modal-content">
+                <div className="modal-header border-0" style={{ backgroundColor: `${COLORS.primary}10` }}>
+                  <h5 className="modal-title fw-bold" style={{ color: COLORS.primary }}>
+                    <i className="fas fa-plus me-2"></i>
+                    Add New City
+                  </h5>
+                  <button 
+                    type="button" 
+                    className="btn-close"
+                    onClick={() => setShowCreateCityModal(false)}
+                  ></button>
+                </div>
+                <div className="modal-body">
+                  <div className="row">
+                    <div className="col-md-8 mb-3">
+                      <label className="form-label fw-semibold">City Name *</label>
+                      <input 
+                        type="text"
+                        className="form-control"
+                        value={newCity.name}
+                        onChange={(e) => setNewCity({...newCity, name: e.target.value})}
+                        placeholder="e.g., Lahore, Islamabad"
+                      />
+                    </div>
+                    <div className="col-md-4 mb-3">
+                      <label className="form-label fw-semibold">Code *</label>
+                      <input 
+                        type="text"
+                        className="form-control"
+                        value={newCity.code}
+                        onChange={(e) => setNewCity({...newCity, code: e.target.value})}
+                        placeholder="e.g., LHR"
+                        maxLength="4"
+                      />
+                    </div>
+                  </div>
+                  <div className="row">
+                    <div className="col-md-4 mb-3">
+                      <label className="form-label fw-semibold">Labor Rate/sqft (PKR)</label>
+                      <input 
+                        type="number"
+                        className="form-control"
+                        value={newCity.labor_rate_per_sqft}
+                        onChange={(e) => setNewCity({...newCity, labor_rate_per_sqft: parseFloat(e.target.value) || 0})}
+                      />
+                    </div>
+                    <div className="col-md-4 mb-3">
+                      <label className="form-label fw-semibold">Material Rate (PKR)</label>
+                      <input 
+                        type="number"
+                        className="form-control"
+                        value={newCity.material_base_rate}
+                        onChange={(e) => setNewCity({...newCity, material_base_rate: parseFloat(e.target.value) || 0})}
+                      />
+                    </div>
+                    <div className="col-md-4 mb-3">
+                      <label className="form-label fw-semibold">Equipment Rate (PKR)</label>
+                      <input 
+                        type="number"
+                        className="form-control"
+                        value={newCity.equipment_rate}
+                        onChange={(e) => setNewCity({...newCity, equipment_rate: parseFloat(e.target.value) || 0})}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="modal-footer border-0">
+                  <button 
+                    type="button" 
+                    className="btn btn-outline-secondary"
+                    onClick={() => setShowCreateCityModal(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn"
+                    onClick={createCity}
+                    style={{ backgroundColor: COLORS.success, color: 'white' }}
+                  >
+                    <i className="fas fa-plus me-1"></i>
+                    Create City
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
 // Material Row Component
-const MaterialRow = ({ material, onUpdate }) => {
+const MaterialRow = ({ material, onUpdate, onDelete }) => {
   const [editing, setEditing] = useState(false);
   const [rates, setRates] = useState({
     standard_rate: material.standard_rate,
@@ -1048,14 +1387,24 @@ const MaterialRow = ({ material, onUpdate }) => {
             </button>
           </div>
         ) : (
-          <button 
-            className="btn btn-sm p-0"
-            onClick={() => setEditing(true)}
-            style={{ color: COLORS.primary }}
-            title="Edit"
-          >
-            <i className="fas fa-edit"></i>
-          </button>
+          <div className="d-flex gap-1 justify-content-center">
+            <button 
+              className="btn btn-sm p-0"
+              onClick={() => setEditing(true)}
+              style={{ color: COLORS.primary }}
+              title="Edit"
+            >
+              <i className="fas fa-edit"></i>
+            </button>
+            <button 
+              className="btn btn-sm p-0"
+              onClick={() => onDelete(material.id)}
+              style={{ color: COLORS.danger }}
+              title="Delete"
+            >
+              <i className="fas fa-trash"></i>
+            </button>
+          </div>
         )}
       </td>
     </tr>
@@ -1063,7 +1412,7 @@ const MaterialRow = ({ material, onUpdate }) => {
 };
 
 // City Row Component
-const CityRow = ({ city, onUpdate }) => {
+const CityRow = ({ city, onUpdate, onDelete }) => {
   const [editing, setEditing] = useState(false);
   const [cityData, setCityData] = useState({
     labor_rate_per_sqft: city.labor_rate_per_sqft,
@@ -1183,14 +1532,24 @@ const CityRow = ({ city, onUpdate }) => {
             </button>
           </div>
         ) : (
-          <button 
-            className="btn btn-sm p-0"
-            onClick={() => setEditing(true)}
-            style={{ color: COLORS.primary }}
-            title="Edit"
-          >
-            <i className="fas fa-edit"></i>
-          </button>
+          <div className="d-flex gap-1 justify-content-center">
+            <button 
+              className="btn btn-sm p-0"
+              onClick={() => setEditing(true)}
+              style={{ color: COLORS.primary }}
+              title="Edit"
+            >
+              <i className="fas fa-edit"></i>
+            </button>
+            <button 
+              className="btn btn-sm p-0"
+              onClick={() => onDelete(city.id)}
+              style={{ color: COLORS.danger }}
+              title="Delete"
+            >
+              <i className="fas fa-trash"></i>
+            </button>
+          </div>
         )}
       </td>
     </tr>

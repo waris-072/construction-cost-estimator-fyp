@@ -115,7 +115,7 @@ const Header = () => {
           {/* Brand Logo - static, not clickable */}
 <div className="navbar-brand d-flex align-items-center gap-2 p-2 rounded-3">
   <div className="logo-icon bg-gradient-primary rounded-2 d-flex align-items-center justify-content-center text-white fw-bold shadow-primary">
-    CCC
+    CCE
   </div>
   <span className="brand-text gradient-text fw-bold">
     Construction Cost Estimator

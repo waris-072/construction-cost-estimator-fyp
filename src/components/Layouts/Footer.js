@@ -16,16 +16,16 @@ const Footer = () => {
               at University of Sindh, Jamshoro.
             </p>
             <div className="d-flex gap-3 mt-3">
-              <a href="#" className="text-light-emphasis hover-primary">
+              <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="text-light-emphasis hover-primary">
                 <i className="fab fa-github fs-5"></i>
               </a>
-              <a href="" className="text-light-emphasis hover-primary">
+              <a href="mailto:contact@example.com" className="text-light-emphasis hover-primary">
                 <i className="fas fa-envelope fs-5"></i>
               </a>
-              <a href="" className="text-light-emphasis hover-primary">
+              <a href="tel:+923001234567" className="text-light-emphasis hover-primary">
                 <i className="fas fa-phone fs-5"></i>
               </a>
-            </div>
+              </div>
           </div>
 
           {/* Quick Links */}
@@ -99,13 +99,13 @@ const Footer = () => {
               Help Center
             </Link>
             <span className="text-muted">•</span>
-            <a href="#" className="text-muted hover-primary text-decoration-none">
-              Privacy Policy
-            </a>
+              <Link to="/privacy-policy" className="text-muted hover-primary text-decoration-none">
+                Privacy Policy
+              </Link>
             <span className="text-muted">•</span>
-            <a href="#" className="text-muted hover-primary text-decoration-none">
-              Terms of Service
-            </a>
+              <Link to="/terms-of-service" className="text-muted hover-primary text-decoration-none">
+                Terms of Service
+              </Link>
           </div>
         </div>
       </div>

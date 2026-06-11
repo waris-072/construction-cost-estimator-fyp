@@ -4,7 +4,7 @@ import { Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import { estimateAPI } from '../../services/api'; // Import the API
+import { estimateAPI, adminAPI } from '../../services/api';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -18,18 +18,30 @@ const Results = () => {
   const [loading, setLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [expandedCategories, setExpandedCategories] = useState([]);
+  const [locationSuggestions, setLocationSuggestions] = useState(null);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
   const loadSavedEstimate = useCallback(async (estimateId) => {
     try {
       setLoading(true);
-      const response = await estimateAPI.getEstimate(estimateId);
-      
+      // Try to detect admin context from navigation state
+      const userStr = localStorage.getItem('user');
+      let isAdmin = false;
+      if (userStr) {
+        try {
+          const user = JSON.parse(userStr);
+          isAdmin = user.role === 'admin';
+        } catch {}
+      }
+      let response;
+      if (isAdmin) {
+        response = await adminAPI.getEstimateDetails(estimateId);
+      } else {
+        response = await estimateAPI.getEstimate(estimateId);
+      }
       if (response.data.success) {
         const savedEstimate = response.data.estimate;
-        
-        // Set the estimate data
         setEstimate(savedEstimate);
-        
         // Reconstruct formData from saved estimate
         const reconstructedFormData = {
           projectName: savedEstimate.project_name || 'Saved Project',
@@ -44,9 +56,7 @@ const Results = () => {
           roomLength: savedEstimate.room_length || 0,
           roomWidth: savedEstimate.room_width || 0
         };
-        
         setFormData(reconstructedFormData);
-        
         console.log('Loaded saved estimate:', savedEstimate);
       } else {
         console.error('Failed to load saved estimate:', response.data.error);
@@ -168,65 +178,104 @@ const Results = () => {
     return expandedCategories.includes(category);
   };
 
+  const fetchLocationSuggestions = async () => {
+    if (!estimate || !formData) return;
+    
+    setLoadingSuggestions(true);
+    try {
+      const response = await estimateAPI.api.post('/estimate/location-suggestions', {
+        projectData: formData,
+        currentCost: estimate.total_cost
+      });
+      
+      if (response.data.success) {
+        setLocationSuggestions(response.data.suggestions);
+      }
+    } catch (error) {
+      console.error('Error fetching location suggestions:', error);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+
   // Updated BOQ breakdown based on backend logic
+  const [materialRates, setMaterialRates] = useState(null);
+
+  // Fetch live material rates from backend when formData changes
+  useEffect(() => {
+    const fetchRates = async () => {
+      if (!formData) return;
+      try {
+        // Use estimateAPI.getMaterials (returns all materials with rates)
+        const res = await estimateAPI.getMaterials();
+        if (res.data.success && Array.isArray(res.data.materials)) {
+          // Filter by location and quality
+          const location = formData.location || 'Karachi';
+          const quality = (formData.materialQuality || 'standard').toLowerCase();
+          // Build a rates object: { cement: rate, steel: rate, ... }
+          const ratesObj = {};
+          res.data.materials.forEach(mat => {
+            if (mat && mat.name) {
+              ratesObj[mat.name.toLowerCase()] = mat[quality + '_rate'] || mat.standard_rate;
+            }
+          });
+          setMaterialRates(ratesObj);
+        } else {
+          setMaterialRates(null);
+        }
+      } catch (e) {
+        setMaterialRates(null);
+      }
+    };
+    fetchRates();
+  }, [formData]);
+
   const getCategoryBreakdown = (category) => {
     if (!estimate || !formData) return [];
 
+    // For Materials, use backend-provided material_boq only
+    if (category === 'Materials') {
+      return Array.isArray(estimate.material_boq)
+        ? estimate.material_boq.map((item) => ({
+            name: item.material,
+            quantity: `${item.quantity} ${item.unit}`,
+            rate: `PKR ${item.rate.toLocaleString()} /${item.unit}`,
+            total: `PKR ${item.total.toLocaleString()}`
+          }))
+        : [];
+    }
+
+    // For other categories, keep the original logic and define all needed variables
     const area = parseFloat(formData.projectSize) || 0;
     const floors = parseInt(formData.floors) || 1;
     const effectiveArea = area * floors;
-    const locationName = formData.location || 'Karachi';
     const quality = formData.materialQuality || 'standard';
     const finishesQuality = formData.finishesQuality || 'standard';
-    
+    const rates = materialRates;
     // Quality factors from backend
     const qualityFactors = {
       'standard': 1.0,
       'premium': 1.10,
       'luxury': 1.20
     };
-    
     const qf = qualityFactors[quality.toLowerCase()] || 1.0;
-
-    // Material rates from backend (simplified for frontend display)
-    const materialRates = {
-      'Karachi': {
-        'cement': 1250,   // per bag
-        'steel': 280,     // per kg
-        'bricks': 14,     // per brick
-        'sand': 120,      // per cft
-        'crush': 140      // per cft
-      },
-      'Hyderabad': {
-        'cement': 1150,
-        'steel': 260,
-        'bricks': 12,
-        'sand': 105,
-        'crush': 125
-      },
-      'Sukkur': {
-        'cement': 1100,
-        'steel': 250,
-        'bricks': 11,
-        'sand': 100,
-        'crush': 120
-      }
-    };
-
-    const rates = materialRates[locationName] || materialRates['Karachi'];
-
-    // Calculate quantities based on backend formulas
+    // Calculate quantities and costs based on backend formulas (see estimate.py)
     const cementBags = effectiveArea * 0.40 * qf;
     const steelKg = effectiveArea * 3.50 * qf;
     const bricksQty = effectiveArea * 8;
     const sandCft = effectiveArea * 1.20;
     const crushCft = effectiveArea * 0.90;
-
-    const cementCost = cementBags * rates['cement'];
-    const steelCost = steelKg * rates['steel'];
-    const bricksCost = bricksQty * rates['bricks'];
-    const sandCost = sandCft * rates['sand'];
-    const crushCost = crushCft * rates['crush'];
+    // Backend: bricks, sand, crush rates are per 1000 units
+    const cementRate = rates ? (rates['cement'] || 0) : 0;
+    const steelRate = rates ? (rates['steel bars'] || rates['steel'] || 0) : 0;
+    const bricksRate = rates ? ((rates['bricks'] || 0) / 1000) : 0;
+    const sandRate = rates ? ((rates['sand'] || 0) / 1000) : 0;
+    const crushRate = rates ? ((rates['crush'] || 0) / 1000) : 0;
+    const cementCost = cementBags * cementRate;
+    const steelCost = steelKg * steelRate;
+    const bricksCost = bricksQty * bricksRate;
+    const sandCost = sandCft * sandRate;
+    const crushCost = crushCft * crushRate;
 
     // Labor rates from backend
     const laborRatesData = {
@@ -234,7 +283,7 @@ const Results = () => {
       'Hyderabad': 450,
       'Sukkur': 400
     };
-    
+    const locationName = formData.location || 'Karachi';
     const laborRate = laborRatesData[locationName] || 550;
     const laborCost = area * laborRate * floors;
 
@@ -247,7 +296,6 @@ const Results = () => {
       'premium': 750,
       'luxury': 1300
     };
-    
     const finishesRate = finishRates[finishesQuality.toLowerCase()] || 450;
     const finishesCost = formData.finishes === 'Yes' ? area * finishesRate * floors : 0;
 
@@ -258,45 +306,15 @@ const Results = () => {
     // Room cost from backend
     const roomCost = parseInt(formData.rooms || 0) * 60000;
 
+    // ...existing code for other categories...
     const breakdowns = {
-      'Materials': [
-        { 
-          name: 'Cement', 
-          quantity: `${Math.round(cementBags)} bags`, 
-          rate: `PKR ${rates['cement'].toLocaleString()}/bag`,
-          total: `PKR ${Math.round(cementCost).toLocaleString()}`
-        },
-        { 
-          name: 'Steel', 
-          quantity: `${Math.round(steelKg)} kg`, 
-          rate: `PKR ${rates['steel'].toLocaleString()}/kg`,
-          total: `PKR ${Math.round(steelCost).toLocaleString()}`
-        },
-        { 
-          name: 'Bricks', 
-          quantity: `${Math.round(bricksQty)} pcs`, 
-          rate: `PKR ${rates['bricks'].toLocaleString()}/pc`,
-          total: `PKR ${Math.round(bricksCost).toLocaleString()}`
-        },
-        { 
-          name: 'Sand', 
-          quantity: `${Math.round(sandCft)} cft`, 
-          rate: `PKR ${rates['sand'].toLocaleString()}/cft`,
-          total: `PKR ${Math.round(sandCost).toLocaleString()}`
-        },
-        { 
-          name: 'Crush', 
-          quantity: `${Math.round(crushCft)} cft`, 
-          rate: `PKR ${rates['crush'].toLocaleString()}/cft`,
-          total: `PKR ${Math.round(crushCost).toLocaleString()}`
-        }
-      ],
+      // ...existing code...
       'Labor': [
         { 
           name: 'Construction Labor', 
-          quantity: `${area.toLocaleString()} sq.ft × ${floors} floor(s)`, 
-          rate: `PKR ${laborRate.toLocaleString()}/sq.ft`,
-          total: `PKR ${Math.round(laborCost).toLocaleString()}`
+          quantity: `${area && !isNaN(area) ? area.toLocaleString() : 'N/A'} sq.ft × ${floors} floor(s)`, 
+          rate: `PKR ${laborRate && !isNaN(laborRate) ? laborRate.toLocaleString() : 'N/A'}/sq.ft`,
+          total: `PKR ${laborCost && !isNaN(laborCost) ? Math.round(laborCost).toLocaleString() : 'N/A'}`
         },
         { 
           name: 'Masonry Work', 
@@ -320,7 +338,7 @@ const Results = () => {
           name: 'Plumbing Work', 
           quantity: `${formData.rooms} room(s)`, 
           rate: 'PKR 35,000/room',
-          total: `PKR ${Math.round(parseInt(formData.rooms || 0) * 35000).toLocaleString()}`
+          total: `PKR ${formData.rooms && !isNaN(formData.rooms) ? Math.round(parseInt(formData.rooms) * 35000).toLocaleString() : 'N/A'}`
         }
       ],
       'Equipment': [
@@ -328,7 +346,7 @@ const Results = () => {
           name: 'Equipment Rental', 
           quantity: 'Project duration', 
           rate: '18% of labor cost',
-          total: `PKR ${Math.round(equipmentCost).toLocaleString()}`
+          total: `PKR ${equipmentCost && !isNaN(equipmentCost) ? Math.round(equipmentCost).toLocaleString() : 'N/A'}`
         },
         { 
           name: 'Concrete Mixer', 
@@ -358,21 +376,21 @@ const Results = () => {
       'Finishes': formData.finishes === 'Yes' ? [
         { 
           name: 'Interior Finishes', 
-          quantity: `${area.toLocaleString()} sq.ft × ${floors} floor(s)`, 
-          rate: `PKR ${finishesRate.toLocaleString()}/sq.ft`,
-          total: `PKR ${Math.round(finishesCost).toLocaleString()}`
+          quantity: `${area && !isNaN(area) ? area.toLocaleString() : 'N/A'} sq.ft × ${floors} floor(s)`, 
+          rate: `PKR ${finishesRate && !isNaN(finishesRate) ? finishesRate.toLocaleString() : 'N/A'}/sq.ft`,
+          total: `PKR ${finishesCost && !isNaN(finishesCost) ? Math.round(finishesCost).toLocaleString() : 'N/A'}`
         },
         { 
           name: 'Flooring', 
-          quantity: `${effectiveArea.toLocaleString()} sq.ft`, 
-          rate: `PKR ${Math.round(finishesRate * 0.4).toLocaleString()}/sq.ft`,
-          total: `PKR ${Math.round(effectiveArea * finishesRate * 0.4).toLocaleString()}`
+          quantity: `${effectiveArea && !isNaN(effectiveArea) ? effectiveArea.toLocaleString() : 'N/A'} sq.ft`, 
+          rate: `PKR ${(finishesRate && !isNaN(finishesRate) ? Math.round(finishesRate * 0.4).toLocaleString() : 'N/A')}/sq.ft`,
+          total: `PKR ${(effectiveArea && finishesRate && !isNaN(effectiveArea) && !isNaN(finishesRate) ? Math.round(effectiveArea * finishesRate * 0.4).toLocaleString() : 'N/A')}`
         },
         { 
           name: 'Painting', 
-          quantity: `${Math.round(effectiveArea * 3.5).toLocaleString()} sq.ft (walls)`, 
-          rate: `PKR ${Math.round(finishesRate * 0.3).toLocaleString()}/sq.ft`,
-          total: `PKR ${Math.round(effectiveArea * 3.5 * finishesRate * 0.3).toLocaleString()}`
+          quantity: `${effectiveArea && !isNaN(effectiveArea) && finishesRate && !isNaN(finishesRate) ? Math.round(effectiveArea * 3.5).toLocaleString() : 'N/A'} sq.ft (walls)`, 
+          rate: `PKR ${(finishesRate && !isNaN(finishesRate) ? Math.round(finishesRate * 0.3).toLocaleString() : 'N/A')}/sq.ft`,
+          total: `PKR ${(effectiveArea && finishesRate && !isNaN(effectiveArea) && !isNaN(finishesRate) ? Math.round(effectiveArea * 3.5 * finishesRate * 0.3).toLocaleString() : 'N/A')}`
         },
         { 
           name: 'Bathroom Tiles', 
@@ -521,7 +539,7 @@ const Results = () => {
             const value = context.raw || 0;
             const total = context.dataset.data.reduce((a, b) => a + b, 0);
             const percentage = Math.round((value / total) * 100);
-            return `${label}: PKR ${value.toLocaleString()} (${percentage}%)`;
+            return `${label}: PKR ${value && !isNaN(value) ? value.toLocaleString() : 'N/A'} (${percentage}%)`;
           }
         },
         backgroundColor: 'rgba(0, 0, 0, 0.8)',
@@ -716,7 +734,7 @@ const Results = () => {
                           <div className="col-md-4 text-end">
                             <div className="total-cost-display">
                               <div className="total-cost-amount fw-bold" style={{color: '#059669', fontSize: '1.8rem'}}>
-                                PKR {estimate.total_cost.toLocaleString()}
+                                PKR {estimate && estimate.total_cost && !isNaN(estimate.total_cost) ? estimate.total_cost.toLocaleString() : 'N/A'}
                               </div>
                               {estimate.accuracy_level && (
                                 <p className="text-muted small mb-0">
@@ -845,7 +863,7 @@ const Results = () => {
                                           ))}
                                           <tr className="table-success">
                                             <td colSpan="3" className="text-end fw-bold">Subtotal for {item.category}:</td>
-                                            <td className="text-end fw-bold">PKR {Math.round(item.cost).toLocaleString()}</td>
+                                            <td className="text-end fw-bold">PKR {item.cost && !isNaN(item.cost) ? Math.round(item.cost).toLocaleString() : 'N/A'}</td>
                                           </tr>
                                         </tbody>
                                       </table>
@@ -862,7 +880,7 @@ const Results = () => {
                       <tr className="border-top" style={{backgroundColor: '#f8fafc'}}>
                         <td className="py-3 fw-bold">Total Project Cost</td>
                         <td className="py-3 text-end fw-bold" style={{color: '#059669', fontSize: '1.2rem'}}>
-                          PKR {estimate.total_cost.toLocaleString()}
+                          PKR {estimate && estimate.total_cost && !isNaN(estimate.total_cost) ? estimate.total_cost.toLocaleString() : 'N/A'}
                         </td>
                         <td className="py-3 text-end fw-bold" style={{color: '#059669', fontSize: '1.2rem'}}>
                           100%
@@ -891,6 +909,7 @@ const Results = () => {
                         <li>Labor rates per sq.ft based on location</li>
                         <li>Equipment costs calculated as 18% of labor cost</li>
                         <li>Other costs calculated as 12% of subtotal</li>
+                        <li>Material pricing rates referenced from latest backend database (see Admin Panel & Price Management)</li>
                       </ul>
                     </div>
                   </div>
@@ -901,13 +920,111 @@ const Results = () => {
                         Important BOQ Notes
                       </h6>
                       <ul className="mb-0 ps-3">
-                        <li>Quantities calculated per backend formulas: cement = area × 0.40 × quality factor</li>
-                        <li>Steel: area × 3.50 × quality factor kg</li>
-                        <li>Bricks: area × 8 pieces</li>
-                        <li>Sand: area × 1.20 cft</li>
-                        <li>Crush: area × 0.90 cft</li>
-                        <li>Accuracy: ±7–9% (material take-off based)</li>
+                        <li>Estimation accuracy: ±10% (based on material take-off and current market rates)</li>
+                        <li>Material prices are referenced from the backend's latest rates database</li>
                       </ul>
+                    </div>
+                  </div>
+                </div>
+
+                {/* AI Location Suggestions Section */}
+                <div className="row mt-4">
+                  <div className="col-12">
+                    <div className="card border-0 shadow-sm">
+                      <div className="card-header bg-primary text-white py-3">
+                        <h5 className="mb-0">
+                          <i className="fas fa-lightbulb me-2"></i>
+                          AI-Powered Location Insights
+                        </h5>
+                      </div>
+                      <div className="card-body p-4">
+                        {!locationSuggestions ? (
+                          <div className="text-center">
+                            <p className="text-muted mb-3">
+                              Discover cost estimates for alternative locations in Pakistan
+                            </p>
+                            <button 
+                              onClick={fetchLocationSuggestions}
+                              disabled={loadingSuggestions}
+                              className="btn btn-primary"
+                            >
+                              {loadingSuggestions ? (
+                                <>
+                                  <span className="spinner-border spinner-border-sm me-2"></span>
+                                  Analyzing locations...
+                                </>
+                              ) : (
+                                <>
+                                  <i className="fas fa-globe me-2"></i>
+                                  Show Location Suggestions
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        ) : (
+                          <div>
+                            <div className="alert alert-info mb-4">
+                              <i className="fas fa-info-circle me-2"></i>
+                              <strong>Insights:</strong> {locationSuggestions.savingsPotential}
+                            </div>
+                            
+                            <div className="row g-3">
+                              {locationSuggestions.suggestions && locationSuggestions.suggestions.map((suggestion, idx) => (
+                                <div key={idx} className="col-md-6 col-lg-4">
+                                  <div className="card h-100 border-0 shadow-sm hover-shadow">
+                                    <div className="card-body">
+                                      <h6 className="card-title fw-bold text-primary">
+                                        <i className="fas fa-map-pin me-2"></i>
+                                        {suggestion.location}
+                                      </h6>
+                                      <div className="mt-3">
+                                        <div className="mb-2">
+                                          <small className="text-muted">Estimated Cost</small>
+                                          <p className="mb-0 fw-bold" style={{fontSize: '1.1rem'}}>
+                                            PKR {suggestion.estimatedCost && !isNaN(suggestion.estimatedCost) ? suggestion.estimatedCost.toLocaleString() : 'N/A'}
+                                          </p>
+                                        </div>
+                                        <div className="mb-3">
+                                          <small className="text-muted">Difference from Current</small>
+                                          <p className={`mb-0 fw-bold ${suggestion.costDifference < 0 ? 'text-success' : 'text-danger'}`}>
+                                            {suggestion.costDifference < 0 ? '▼' : '▲'} PKR {suggestion.costDifference && !isNaN(suggestion.costDifference) ? Math.abs(suggestion.costDifference).toLocaleString() : 'N/A'}
+                                            <span className="ms-2 small">
+                                              ({((suggestion.costDifference / estimate.total_cost) * 100).toFixed(1)}%)
+                                            </span>
+                                          </p>
+                                        </div>
+                                        <div className="alert alert-light p-2 mb-0">
+                                          <small className="text-muted">{suggestion.reason}</small>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            
+                            {locationSuggestions.riskFactors && (
+                              <div className="alert alert-warning mt-4">
+                                <h6 className="fw-bold">
+                                  <i className="fas fa-exclamation-circle me-2"></i>
+                                  Risk Factors
+                                </h6>
+                                <p className="mb-0">{locationSuggestions.riskFactors}</p>
+                              </div>
+                            )}
+                            
+                            <div className="text-center mt-4">
+                              <button 
+                                onClick={() => setLocationSuggestions(null)}
+                                className="btn btn-outline-secondary"
+                              >
+                                <i className="fas fa-times me-2"></i>
+                                Close Suggestions
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

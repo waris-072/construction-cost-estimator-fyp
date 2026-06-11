@@ -50,17 +50,29 @@ def create_app():
     bcrypt.init_app(app)
     jwt.init_app(app)
     
-    # Configure CORS
-    CORS(app, supports_credentials=True, origins=["http://localhost:3000"])
+    # Configure CORS - allow both 3000 and 5001 (development ports)
+    cors_origins = [
+        "http://localhost:3000",
+        "http://localhost:5001",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5001"
+    ]
+    # Allow custom origins via environment variable
+    if os.environ.get('CORS_ORIGINS'):
+        cors_origins.extend(os.environ.get('CORS_ORIGINS', '').split(','))
+    
+    CORS(app, supports_credentials=True, origins=cors_origins)
     
     # Import and register blueprints
     from app.auth import auth_bp
     from app.estimate import estimate_bp
     from app.admin import admin_bp
+
     
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(estimate_bp, url_prefix='/api/estimate')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
+
     
     # Create database tables
     with app.app_context():

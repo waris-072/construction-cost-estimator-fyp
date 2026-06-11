@@ -5,11 +5,19 @@ Run the Pakistani Construction Cost Estimator - MySQL Version
 import os
 import sys
 
-# Add the current directory to the path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Set the backend directory as the working directory
+backend_dir = os.path.dirname(os.path.abspath(__file__))
+os.chdir(backend_dir)
+sys.path.insert(0, backend_dir)
 
 from dotenv import load_dotenv
 load_dotenv()
+
+from flask import Flask
+from flask_cors import CORS
+
+app = Flask(__name__)
+CORS(app, origins=["http://localhost:5001"], supports_credentials=True, allow_headers=["Content-Type", "Authorization"])  # Enables CORS with credentials and headers
 
 from app import create_app
 

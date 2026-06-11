@@ -1,0 +1,190 @@
+.voice-input-container {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  padding: 24px;
+  margin: 20px 0;
+  color: white;
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+}
+
+.voice-input-header {
+  margin-bottom: 20px;
+}
+
+.voice-input-header h3 {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.voice-input-header p {
+  margin: 0;
+  font-size: 14px;
+  opacity: 0.95;
+}
+
+.voice-error {
+  background-color: rgba(255, 59, 48, 0.2);
+  border: 1px solid rgba(255, 59, 48, 0.5);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #ffb3b0;
+}
+
+.voice-controls {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.btn-voice-start,
+.btn-voice-stop,
+.btn-voice-clear {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-voice-start {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+}
+
+.btn-voice-start:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.btn-voice-start:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  animation: pulse 1s infinite;
+}
+
+.btn-voice-stop {
+  background-color: rgba(255, 107, 107, 0.3);
+  color: #ffb3b0;
+  border: 1.5px solid rgba(255, 107, 107, 0.5);
+}
+
+.btn-voice-stop:hover:not(:disabled) {
+  background-color: rgba(255, 107, 107, 0.4);
+  transform: translateY(-2px);
+}
+
+.btn-voice-stop:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-voice-clear {
+  background-color: rgba(255, 255, 255, 0.15);
+  color: white;
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+}
+
+.btn-voice-clear:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.25);
+}
+
+.voice-transcript {
+  margin-bottom: 16px;
+}
+
+.voice-transcript label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  opacity: 0.95;
+}
+
+.voice-transcript textarea {
+  width: 100%;
+  height: 100px;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  resize: vertical;
+  background-color: rgba(255, 255, 255, 0.95);
+  color: #333;
+}
+
+.voice-transcript textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
+}
+
+.btn-parse-voice {
+  width: 100%;
+  padding: 12px;
+  background-color: rgba(255, 255, 255, 0.25);
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-radius: 8px;
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-bottom: 16px;
+}
+
+.btn-parse-voice:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.35);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn-parse-voice:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.voice-info {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-left: 3px solid rgba(255, 255, 255, 0.3);
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.voice-info p {
+  margin: 0;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .voice-input-container {
+    padding: 16px;
+  }
+
+  .voice-controls {
+    flex-direction: column;
+  }
+
+  .btn-voice-start,
+  .btn-voice-stop,
+  .btn-voice-clear {
+    width: 100%;
+  }
+}

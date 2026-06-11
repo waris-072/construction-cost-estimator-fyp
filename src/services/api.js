@@ -101,6 +101,12 @@ export const estimateAPI = {
   // Test & Debug
   test: () => api.get('/estimate/test'),
   debug: (data) => api.post('/estimate/debug', data),
+  
+  // API instance for advanced requests
+  api: api,
+
+  // AI city estimate (custom city not in DB)
+  aiCityEstimate: (payload) => api.post('/estimate/ai-city-estimate', payload),
 };
 
 // ==================== ADMIN API ====================
@@ -133,6 +139,15 @@ export const adminAPI = {
   getUser: (id) => api.get(`/admin/users/${id}`),
   updateUser: (id, data) => api.put(`/admin/users/${id}`, data),
   deleteUser: (id) => api.delete(`/admin/users/${id}`),
+  
+  // PBS File Upload
+  uploadPbsFile: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/admin/upload-pbs', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
 };
 
 // ==================== UTILITY FUNCTIONS ====================

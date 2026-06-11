@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { authAPI, estimateAPI, formatCurrency, formatDate, handleApiError } from '../../services/api';
+import { authAPI, estimateAPI, adminAPI, formatCurrency, formatDate, handleApiError } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
 
 const Profile = () => {
@@ -50,29 +50,31 @@ const Profile = () => {
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate]);
 
   const loadEstimationHistory = async (page) => {
     try {
-      const response = await estimateAPI.getHistory(page, pagination.per_page);
-      
+      let response;
+      if (user && user.role === 'admin') {
+        response = await adminAPI.getAllEstimates(page, pagination.per_page);
+      } else {
+        response = await estimateAPI.getHistory(page, pagination.per_page);
+      }
       if (response.data.success) {
-        setEstimates(response.data.estimates);
-        
-        // Update pagination
+        const estimatesData = response.data.estimates || response.data;
+        setEstimates(estimatesData);
         setPagination({
           page: response.data.current_page || page,
           per_page: response.data.per_page || pagination.per_page,
-          total: response.data.total || 0,
+          total: response.data.total || estimatesData.length || 0,
           pages: response.data.pages || 1,
           has_next: response.data.has_next || false,
           has_prev: response.data.has_prev || false
         });
-        
         // Calculate stats from all estimates
-        const totalCost = response.data.estimates.reduce((sum, est) => sum + (est.total_cost || 0), 0);
-        const totalEstimates = response.data.total || 0;
-        
+        const totalCost = estimatesData.reduce((sum, est) => sum + (est.total_cost || 0), 0);
+        const totalEstimates = response.data.total || estimatesData.length || 0;
         setStats({
           totalEstimates: totalEstimates,
           totalCost: totalCost,
@@ -101,27 +103,26 @@ const Profile = () => {
     if (!window.confirm('Are you sure you want to delete this estimate? This action cannot be undone.')) {
       return;
     }
-    
     try {
-      const response = await estimateAPI.deleteEstimate(estimateId);
-      
+      let response;
+      if (user && user.role === 'admin') {
+        response = await adminAPI.deleteEstimateAdmin(estimateId);
+      } else {
+        response = await estimateAPI.deleteEstimate(estimateId);
+      }
       if (response.data.success) {
         // Remove estimate from state
         const deletedEstimate = estimates.find(e => e.id === estimateId);
         setEstimates(prev => prev.filter(est => est.id !== estimateId));
-        
         // Update pagination total
         const newTotal = Math.max(0, pagination.total - 1);
         const newPages = Math.ceil(newTotal / pagination.per_page);
-        
         setPagination(prev => ({
           ...prev,
           total: newTotal,
           pages: newPages,
-          // Adjust current page if needed
           page: prev.page > newPages ? Math.max(1, newPages) : prev.page
         }));
-        
         // Update stats
         if (deletedEstimate) {
           setStats(prev => {
@@ -134,12 +135,10 @@ const Profile = () => {
             };
           });
         }
-        
         // If current page becomes empty after deletion, load previous page
         if (estimates.length === 1 && pagination.page > 1) {
           loadEstimationHistory(pagination.page - 1);
         }
-        
         alert('Estimate deleted successfully!');
       } else {
         throw new Error(response.data.error || 'Failed to delete estimate');
