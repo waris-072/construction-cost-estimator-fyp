@@ -8,9 +8,8 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY', 'construction-estimator-secret-2024')
     JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'jwt-secret-key-construction-2024')
     
-    # MySQL Database Configuration for XAMPP
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        'mysql+pymysql://root:@localhost/construction_estimator?charset=utf8mb4'
+
+    SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL")
     
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
