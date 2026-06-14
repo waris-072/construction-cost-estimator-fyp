@@ -55,7 +55,8 @@ def create_app():
         "http://localhost:3000",
         "http://localhost:5001",
         "http://127.0.0.1:3000",
-        "http://127.0.0.1:5001"
+        "http://127.0.0.1:5001",
+        "https://construction-estimationss.netlify.app",     
     ]
     # Allow custom origins via environment variable
     if os.environ.get('CORS_ORIGINS'):
